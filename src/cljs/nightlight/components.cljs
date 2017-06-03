@@ -165,6 +165,38 @@
                node)]
     (r/as-element [ui/list-item node])))
 
+(def same-starting-char-count
+  "Given 2 strings and an offset, returns the sum of the offset and the length
+  of the longest sequence of characters identical in the 2 strings from that
+  offset"
+  (js* "
+function (a, b, offset) {
+  var counter = offset;
+  while (a[counter] && a[counter] === b[counter]) counter++;
+  return counter;
+}"))
+
+(defn find-target-node
+  ([nodes value] (find-target-node nodes value 0))
+  ([nodes value offset]
+   (let [distances (map-indexed (fn [index node]
+                                  (vector index
+                                          (same-starting-char-count value
+                                                                    (:value node)
+                                                                    offset)))
+                                nodes)
+         [max-index max-offset] (apply max-key second distances)
+         closest-node (nth nodes max-index)]
+     (if (= value (:value closest-node))
+       closest-node
+       (if-let [nested-nodes (:nested-items closest-node)]
+         (recur nested-nodes value max-offset)
+         (throw (ex-info "node could not be found!" {:value value})))))))
+
+(defn leaf? [nodes value]
+  (let [target-node (find-target-node nodes value)]
+    (not (:nested-items target-node))))
+
 (defn tree [mui-theme
             {:keys [nodes options] :as runtime-state}
             {:keys [selection] :as pref-state}]
@@ -183,22 +215,24 @@
                               {:primary-text "ClojureScript REPL"
                                :value c/cljs-repl-path
                                :style {:font-weight "bold"}})]
-                           (remove nil?)
-                           (map (partial node->element false)))
-         nodes (->> nodes
-                    (sort-by :primary-text)
-                    (map (partial node->element true))
-                    (concat header-nodes))]
+                           (remove nil?))
+         ui-header-nodes (map (partial node->element false) header-nodes)
+         ui-nodes (->> nodes
+                       (sort-by :primary-text)
+                       (map (partial node->element true))
+                       (concat ui-header-nodes))]
      (vec
-       (concat
-         [ui/selectable-list
-          {:value selection
-           :on-change (fn [event value]
-                        (when selection
-                          (e/unselect-node selection))
-                        (swap! s/pref-state assoc :selection value)
-                        (e/select-node value))}]
-         nodes)))])
+      (concat
+       [ui/selectable-list
+        {:value selection
+         :on-change (fn [event value]
+                      (when (leaf? (concat header-nodes nodes)
+                                   value)
+                        (do (when selection
+                              (e/unselect-node selection))
+                            (swap! s/pref-state assoc :selection value)
+                            (e/select-node value))))}]
+       ui-nodes)))])
 
 (defn left-sidebar [mui-theme
                     {:keys [nodes options] :as runtime-state}
