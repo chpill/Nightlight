@@ -3,6 +3,7 @@
   :dependencies '[[adzerk/boot-cljs "1.7.228-2" :scope "test"]
                   [adzerk/boot-reload "0.4.12" :scope "test"]
                   [org.clojure/test.check "0.9.0" :scope "test"]
+                  [adzerk/bootlaces "0.1.13" :scope "test"]
                   ; cljs deps
                   [org.clojure/clojurescript "1.9.518" :scope "test"]
                   [paren-soup "2.8.6" :scope "test"]
@@ -25,13 +26,15 @@
   '[adzerk.boot-cljs :refer [cljs]]
   '[adzerk.boot-reload :refer [reload]]
   '[nightlight.core :refer [dev-start]]
-  '[clojure.spec.test :refer [instrument]])
+  '[clojure.spec.test :refer [instrument]]
+  '[adzerk.bootlaces :refer [push-snapshot]])
+
 
 (task-options!
-  pom {:project 'nightlight
+  pom {:project 'org.clojars.chpill/nightlight
        :version "1.6.5-SNAPSHOT"
        :description "An embedded Clojure editor"
-       :url "https://github.com/oakes/Nightlight"
+       :url "https://github.com/chpill/Nightlight"
        :license {"Public Domain" "http://unlicense.org/UNLICENSE"}}
   push {:repo "clojars"}
   sift {:include #{#"nightlight-public/main.out"}
@@ -44,6 +47,10 @@
 (deftask deploy []
   (set-env! :resource-paths #{"src/clj" "src/cljs" "resources" "prod-resources"})
   (comp (cljs :optimizations :advanced) (sift) (pom) (jar) (push)))
+
+(deftask make-jar []
+  (set-env! :resource-paths #{"src/clj" "src/cljs" "resources" "prod-resources"})
+  (comp (cljs :optimizations :advanced) (sift) (pom) (jar) (target)))
 
 (deftask run []
   (set-env! :resource-paths #{"src/clj" "src/cljs" "resources" "dev-resources"})
